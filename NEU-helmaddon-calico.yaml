@@ -1,0 +1,27 @@
+apiVersion: addons.cluster.x-k8s.io/v1alpha1
+kind: HelmChartProxy
+metadata:
+  name: calico
+spec:
+  clusterSelector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: mycapicluster
+  releaseName: calico
+  chartName: tigera-operator
+  repoURL: https://docs.tigera.io/calico/charts
+  version: v3.28.2
+  namespace: kube-system
+  valuesTemplate: |
+    installation:
+      cni:
+        type: Calico
+        ipam:
+          type: HostLocal
+      calicoNetwork:
+        bgp: Disabled
+        mtu: 1350
+        ipPools:{{range $i, $cidr := .Cluster.spec.clusterNetwork.pods.cidrBlocks }}
+        - cidr: {{ $cidr }}
+          encapsulation: None
+          natOutgoing: Enabled
+          nodeSelector: all(){{end}}

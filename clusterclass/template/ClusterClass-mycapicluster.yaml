@@ -1,0 +1,94 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: ClusterClass
+metadata:
+  name: mycapicluster-class
+spec:
+  controlPlane:
+    healthCheck:
+      checks:
+        unhealthyNodeConditions:
+        - status: Unknown
+          timeoutSeconds: 300
+          type: Ready
+        - status: "False"
+          timeoutSeconds: 300
+          type: Ready
+      remediation:
+        triggerIf:
+          unhealthyLessThanOrEqualTo: "100%"
+    machineInfrastructure:
+      templateRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        kind: ProxmoxMachineTemplate
+        name: mycapicluster-control-plane-machine
+    naming:
+      template: '{{ .cluster.name }}-control-plane-{{ .random }}'
+    templateRef:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+      kind: KubeadmControlPlaneTemplate
+      name: mycapicluster-control-plane
+  infrastructure:
+    templateRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+      kind: ProxmoxClusterTemplate
+      name: mycapicluster-cluster
+  workers:
+    machineDeployments:
+    - class: mycapicluster-worker
+      healthCheck:
+        checks:
+          nodeStartupTimeoutSeconds: 900
+          unhealthyNodeConditions:
+          - status: Unknown
+            timeoutSeconds: 300
+            type: Ready
+          - status: "False"
+            timeoutSeconds: 300
+            type: Ready
+        remediation:
+          triggerIf:
+            unhealthyLessThanOrEqualTo: "40%"
+      naming:
+        template: '{{ .cluster.name }}-worker-{{ .random }}'
+      bootstrap:
+        templateRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
+          kind: KubeadmConfigTemplate
+          name: mycapicluster-worker-bootstrap
+      infrastructure:
+        templateRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+          kind: ProxmoxMachineTemplate
+          name: mycapicluster-worker-machine
+      metadata:
+        labels:
+          node-role.kubernetes.io/node: ""
+  # wir selektieren das Image via Tags; Version kommt aus spec.topology.version
+  patches:
+  - name: ControlPlaneTemplateSelector
+    definitions:
+    - selector:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        kind: ProxmoxMachineTemplate
+        matchResources:
+          controlPlane: true
+      jsonPatches:
+      - op: add
+        path: /spec/template/spec/templateSelector/matchTags/-
+        valueFrom:
+          template: "{{ .builtin.controlPlane.version }}"
+  - name: WorkerTemplateSelector
+    definitions:
+    - selector:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        kind: ProxmoxMachineTemplate
+        matchResources:
+          controlPlane: false
+          machineDeploymentClass:
+            names:
+            - mycapicluster-worker
+      jsonPatches:
+      - op: add
+        path: /spec/template/spec/templateSelector/matchTags/-
+        valueFrom:
+          template: "{{ .builtin.machineDeployment.version }}"

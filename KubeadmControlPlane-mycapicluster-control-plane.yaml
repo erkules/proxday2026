@@ -1,0 +1,146 @@
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+metadata:
+  name: "mycapicluster-control-plane"
+spec:
+  replicas: 1
+  machineTemplate:
+    spec:
+      infrastructureRef:
+        kind: ProxmoxMachineTemplate
+        apiGroup: infrastructure.cluster.x-k8s.io
+        name: "mycapicluster-control-plane"
+  kubeadmConfigSpec:
+    users:
+      - name: root
+        sshAuthorizedKeys: ["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDx4PWb6ifU3cbpUj+vMt78nbjoMKs8gR9x2DgC6xj4iJg6B2UQEIKjObpIDhGndrQMdBAZFJsQUjik8yqXxHm/EZE5aVSknJjZoAby6/e5Jp5PmYxs9GR41d1E2JW8y8XlmdceXOAH/iedANWW/zU6PYI971NNHloEu/OIVEhUOi7+FGsOkliEJcek9uqRsnXPy98VRR4xqPeWFppnRxM7SRw4i7+N6COeBFpVWARmY2jiLg5Btp8dkLGyyh1lDAKv1KOyXb9jebjMRGpUpSKABSNuaVMC8eEOYDuMz4x/a8yUfRqpn2WhaTsi5JPZFVbIUNEbfz8RcUvhMYobdz9JRUygBzysyj0obeoNSjZa14rIyIjPp74Y47WwQzry9+EgxEHJ53X7khMTR6RwqSWeAFDllJS3/FmQIHZDMJ4BbqBc2ZdESvGMKe3NdVUQYg1/sXKS/OAzm8NTlBWdTIL7dJcJRnApZoNnLZeMx5eRufWs/mut9tmmeFPKITD/ra/pkqLhmtQFX7U2RVgeyRzfOHD/yr+IYvL5RL6Kt4G0O95aqtF1Ayzv1acbNvxCqQwa9ffzGfon6RRFkRS2Cj9LjsR0kITQNpacy4HnewTjLS1CzHJFSUl9GfKv7Y8OYo9sewgGRrNEXPfX0nXVPn5GDAQbVuTnpwu8LBCCUm2Igw== erkan.yanar@linsenraum.de"]
+    files:
+      - content: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            creationTimestamp: null
+            name: kube-vip
+            namespace: kube-system
+          spec:
+            containers:
+            - args:
+              - manager
+              env:
+              - name: cp_enable
+                value: "true"
+              - name: vip_interface
+                value: ""
+              - name: address
+                value: 10.10.10.10
+              - name: port
+                value: "6443"
+              - name: vip_arp
+                value: "true"
+              - name: vip_leaderelection
+                value: "true"
+              - name: vip_leaseduration
+                value: "15"
+              - name: vip_renewdeadline
+                value: "10"
+              - name: vip_retryperiod
+                value: "2"
+              image: ghcr.io/kube-vip/kube-vip:v0.7.1
+              imagePullPolicy: IfNotPresent
+              name: kube-vip
+              resources: {}
+              securityContext:
+                capabilities:
+                  add:
+                  - NET_ADMIN
+                  - NET_RAW
+              volumeMounts:
+              - mountPath: /etc/kubernetes/admin.conf
+                name: kubeconfig
+            hostAliases:
+            - hostnames:
+              - localhost
+              - kubernetes
+              ip: 127.0.0.1
+            hostNetwork: true
+            volumes:
+            - hostPath:
+                path: /etc/kubernetes/admin.conf
+                type: FileOrCreate
+              name: kubeconfig
+          status: {}
+        owner: root:root
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+      - path: /etc/kube-vip-prepare.sh
+        content: |
+          #!/bin/bash
+          
+          # Copyright 2020 The Kubernetes Authors.
+          #
+          # Licensed under the Apache License, Version 2.0 (the "License");
+          # you may not use this file except in compliance with the License.
+          # You may obtain a copy of the License at
+          #
+          #     http://www.apache.org/licenses/LICENSE-2.0
+          #
+          # Unless required by applicable law or agreed to in writing, software
+          # distributed under the License is distributed on an "AS IS" BASIS,
+          # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+          # See the License for the specific language governing permissions and
+          # limitations under the License.
+          
+          set -e
+          
+          # Configure the workaround required for kubeadm init with kube-vip:
+          # xref: https://github.com/kube-vip/kube-vip/issues/684
+          
+          # Nothing to do for kubernetes < v1.29
+          KUBEADM_MINOR="$(kubeadm version -o short | cut -d '.' -f 2)"
+          if [[ "$KUBEADM_MINOR" -lt "29" ]]; then
+            exit 0
+          fi
+          
+          IS_KUBEADM_INIT="false"
+          
+          # cloud-init kubeadm init
+          if [[ -f /run/kubeadm/kubeadm.yaml ]]; then
+            IS_KUBEADM_INIT="true"
+          fi
+          
+          # ignition kubeadm init
+          if [[ -f /etc/kubeadm.sh ]] && grep -q -e "kubeadm init" /etc/kubeadm.sh; then
+            IS_KUBEADM_INIT="true"
+          fi
+          
+          if [[ "$IS_KUBEADM_INIT" == "true" ]]; then
+            sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' \
+              /etc/kubernetes/manifests/kube-vip.yaml
+          fi
+        owner: root:root
+        permissions: "0700"
+    preKubeadmCommands:
+      - "apt-get update"
+      - "apt-get install -y apt-transport-https ca-certificates curl gpg"
+      - "curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+      - "echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' > /etc/apt/sources.list.d/kubernetes.list"
+      - "apt-get update"
+      - "apt-get install -y containerd containernetworking-plugins qemu-guest-agent"
+      - "apt-get install -y kubelet kubeadm kubectl cri-tools"
+      - "mkdir -p /etc/containerd"
+      - "containerd config default > /etc/containerd/config.toml"
+      - "sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml"
+      - "systemctl enable --now containerd"
+      - "sysctl -w net.ipv4.ip_forward=1"
+      - "crictl config runtime-endpoint unix:///run/containerd/containerd.sock"
+      - /etc/kube-vip-prepare.sh
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          - name: provider-id
+            value: "proxmox://'{{ ds.meta_data.instance_id }}'"
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          - name: provider-id
+            value: "proxmox://'{{ ds.meta_data.instance_id }}'"
+  version: "v1.35.0"

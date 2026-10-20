@@ -1,0 +1,16 @@
+# create ns
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capmox-system
+
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: InfrastructureProvider
+metadata:
+  name: proxmox
+  namespace: capmox-system
+spec:
+  version: "v0.9.1"
+  configSecret:                   # sonst muss das pro cluster mitgegeben werden
+    name: proxmox-credentials

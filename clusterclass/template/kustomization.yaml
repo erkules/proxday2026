@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: proxmoxday
+resources:
+- namespace.yaml
+- ClusterClass-mycapicluster.yaml
+- KubeadmConfigTemplate-mycapicluster-worker.yaml
+- KubeadmControlPlaneTemplate-mycapicluster-control-plane.yaml
+- NEU-helmaddon-calico.yaml
+- NEU-helmaddon-cilium.yaml
+- ProxmoxClusterTemplate-mycapicluster.yaml
+- ProxmoxMachineTemplate-mycapicluster-control-plane.yaml
+- ProxmoxMachineTemplate-mycapicluster-worker.yaml

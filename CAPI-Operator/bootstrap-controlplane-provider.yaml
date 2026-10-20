@@ -1,0 +1,35 @@
+#
+#------ create ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capi-kubeadm-controlplane-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capi-kubeadm-bootstrap-system
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: BootstrapProvider
+metadata:
+  name: kubeadm
+  namespace: capi-kubeadm-bootstrap-system
+spec:
+  manager:
+    featureGates:
+      MachinePool: false
+      KubeadmBootstrapFormatIgnition: false
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: ControlPlaneProvider
+metadata:
+  name: kubeadm
+  namespace: capi-kubeadm-controlplane-system
+spec:
+  manager:
+    featureGates:
+      ClusterTopology: true
+      InPlaceUpdates: false
+      KubeadmBootstrapFormatIgnition: false

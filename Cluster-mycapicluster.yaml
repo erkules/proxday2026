@@ -1,0 +1,19 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  labels:
+    cilium-enabled: "enabled"
+    cluster.x-k8s.io/cluster-name: 'mycapicluster'
+  name: "mycapicluster"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiGroup: infrastructure.cluster.x-k8s.io
+    kind: ProxmoxCluster
+    name: "mycapicluster"
+  controlPlaneRef:
+    kind: KubeadmControlPlane
+    apiGroup: controlplane.cluster.x-k8s.io
+    name: "mycapicluster-control-plane"

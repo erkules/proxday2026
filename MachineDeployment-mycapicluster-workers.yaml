@@ -1,0 +1,28 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineDeployment
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: 'mycapicluster'
+  name: "mycapicluster-workers"
+spec:
+  clusterName: "mycapicluster"
+  replicas: 3
+  selector:
+    matchLabels:
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: 'mycapicluster'
+        node-role.kubernetes.io/node: ""
+    spec:
+      clusterName: "mycapicluster"
+      version: "v1.35.1"
+      bootstrap:
+        configRef:
+          name: "mycapicluster-worker"
+          apiGroup: bootstrap.cluster.x-k8s.io
+          kind: KubeadmConfigTemplate
+      infrastructureRef:
+        name: "mycapicluster-worker"
+        apiGroup: infrastructure.cluster.x-k8s.io
+        kind: ProxmoxMachineTemplate

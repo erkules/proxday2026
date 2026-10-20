@@ -1,0 +1,24 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: mycapicluster
+    clilium-helm: enabled 
+  name: mycapicluster
+  namespace: proxmoxday
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  topology:
+    classRef:
+      name: mycapicluster-class
+    version: v1.35.9
+    #version: v1.36.5
+    controlPlane:
+      replicas: 1
+    workers:
+      machineDeployments:
+      - class: mycapicluster-worker
+        name: mycapicluster-workers
+        replicas: 1

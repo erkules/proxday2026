@@ -1,0 +1,34 @@
+# need to create the ns first
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capi-system
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: CoreProvider
+metadata:
+  name: cluster-api
+  namespace: capi-system
+spec:
+  #$ curl -s https://api.github.com/repos/kubernetes-sigs/cluster-api/releases   | jq -r '.[].tag_name' | sort
+  version: v1.13.3
+  manager:
+    featureGates:
+      ClusterTopology: true
+      RuntimeSDK: true
+      MachinePool: false
+      InPlaceUpdates: false
+      MachineSetPreflightChecks: false
+      MachineTaintPropagation: false
+      KubeadmBootstrapFormatIgnition: false
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: AddonProvider
+metadata:
+  name: helm
+  namespace: capi-operator-system
+spec:
+  # Der Operator weiß durch den Namen "helm", welches Image er ziehen muss
+  # $ curl -s https://api.github.com/repos/kubernetes-sigs/cluster-api-addon-provider-helm/releases   | jq -r '.[].tag_name' | sort
+  version: v0.6.4
